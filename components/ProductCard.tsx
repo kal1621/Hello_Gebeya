@@ -4,28 +4,15 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Star, ShoppingCart } from 'lucide-react'
 import { useCartStore } from '@/store/cartStore'
-
-interface Product {
-  id: string | number  // Accept both string and number
-  title: string
-  description: string
-  price: number
-  image: string
-  category: string
-  rating: {
-    rate: number
-    count: number
-  }
-}
+import type { Product } from '@/lib/types'
 
 interface ProductCardProps {
-  product: Product | null  // Allow null
+  product: Product | null
 }
 
 export default function ProductCard({ product }: ProductCardProps) {
   const addItem = useCartStore((state) => state.addItem)
 
-  // Guard clause for null/undefined product
   if (!product) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-pulse">
@@ -39,15 +26,15 @@ export default function ProductCard({ product }: ProductCardProps) {
   }
 
   const handleAddToCart = () => {
-  addItem({
-    id: product.id.toString(),
-    name: product.title,      // Changed from title to name
-    price: product.price,
-    image: product.image,
-    quantity: 1,
-  })
-  console.log('Added to cart:', product.title)
-}
+    addItem({
+      id: product.id,
+      name: product.title,
+      price: product.price,
+      image: product.image,
+      quantity: 1,
+    })
+    console.log('Added to cart:', product.title)
+  }
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
@@ -73,7 +60,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           <div className="flex items-center">
             <Star size={14} className="text-amber-500 fill-amber-500" />
             <span className="ml-1 text-sm text-gray-600">
-              {product.rating.rate} ({product.rating.count})
+              {product.rating.rate} ({product.rating.count || 0})
             </span>
           </div>
         </div>

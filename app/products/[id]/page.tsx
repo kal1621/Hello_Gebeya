@@ -1,391 +1,196 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Filter, Search } from 'lucide-react'
+import Image from 'next/image'
+import Link from 'next/link'
+import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowLeft, Package, ShieldCheck, Star, Truck } from 'lucide-react'
+import AddToCartButton from '@/components/AddToCartButton'
 import ProductCard from '@/components/ProductCard'
-import { Product } from '@/lib/types'
+import type { Product } from '@/lib/types'
 
-// Mock categories (you can get these from API)
-const categories = [
-  'All',
-  'electronics',
-  'jewelery', 
-  "men's clothing",
-  "women's clothing"
-]
-
-export default function ProductsPage() {
+export default function ProductDetailsPage() {
+  const params = useParams<{ id: string }>()
+  const router = useRouter()
+  const productId = Array.isArray(params?.id) ? params.id[0] : params?.id
+  const [product, setProduct] = useState<Product | null>(null)
   const [products, setProducts] = useState<Product[]>([])
-  const [filteredProducts, setFilteredProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('All')
-  const [priceRange, setPriceRange] = useState([0, 1000])
-  const [showFilters, setShowFilters] = useState(false)
+  const [error, setError] = useState('')
 
-  // Fetch products
   useEffect(() => {
-    async function fetchProducts() {
-      try {
-        const res = await fetch('https://fakestoreapi.com/products')
-        const data = await res.json()
-        setProducts(data)
-        setFilteredProducts(data)
-      } catch (error) {
-        console.error('Error fetching products:', error)
-      } finally {
+    let isActive = true
+
+    async function fetchProductData() {
+      if (!productId) {
+        setError('Product not found')
         setLoading(false)
+        return
+      }
+
+      try {
+        const [productResponse, productsResponse] = await Promise.all([
+          fetch(`/api/products/${productId}`, { cache: 'no-store' }),
+          fetch('/api/products', { cache: 'no-store' }),
+        ])
+
+        const productData = await productResponse.json()
+        const productsData = await productsResponse.json()
+
+        if (!productResponse.ok) {
+          throw new Error(productData.message || 'Product not found')
+        }
+
+        if (!productsResponse.ok) {
+          throw new Error(productsData.message || 'Unable to load products')
+        }
+
+        if (isActive) {
+          setProduct(productData.product ?? null)
+          setProducts(productsData.products ?? [])
+        }
+      } catch (fetchError) {
+        if (isActive) {
+          setError(fetchError instanceof Error ? fetchError.message : 'Unable to load product')
+        }
+      } finally {
+        if (isActive) {
+          setLoading(false)
+        }
       }
     }
-    fetchProducts()
-  }, [])
 
-  // Apply filters whenever search, category, or price changes
-  useEffect(() => {
-    let filtered = products
+    fetchProductData()
 
-    // Apply search filter
-    if (searchQuery) {
-      filtered = filtered.filter(product =>
-        product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    return () => {
+      isActive = false
+    }
+  }, [productId])
+
+  const relatedProducts = useMemo(() => {
+    if (!product) {
+      return []
     }
 
-    // Apply category filter
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(product =>
-        product.category.toLowerCase() === selectedCategory.toLowerCase()
-      )
-    }
-
-    // Apply price filter
-    filtered = filtered.filter(product =>
-      product.price >= priceRange[0] && product.price <= priceRange[1]
-    )
-
-    setFilteredProducts(filtered)
-  }, [searchQuery, selectedCategory, priceRange, products])
-
-  // Get max price for range slider
-  const maxPrice = Math.max(...products.map(p => p.price), 1000)
+    return products
+      .filter((item) => item.id !== product.id && item.category === product.category)
+      .slice(0, 4)
+  }, [product, products])
 
   if (loading) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <p>Loading products...</p>
+      <div className="container mx-auto px-4 py-16 text-center">
+        <p className="text-lg text-gray-500">Loading product...</p>
+      </div>
+    )
+  }
+
+  if (error || !product) {
+    return (
+      <div className="container mx-auto px-4 py-16">
+        <div className="mx-auto max-w-xl rounded-2xl border border-red-200 bg-red-50 px-6 py-10 text-center">
+          <p className="text-lg font-semibold text-red-700">{error || 'Product not found'}</p>
+          <button
+            type="button"
+            onClick={() => router.push('/products')}
+            className="mt-4 rounded-xl bg-blue-600 px-4 py-3 font-medium text-white hover:bg-blue-700"
+          >
+            Back to Products
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '20px' }}>
-      {/* Page Header */}
-      <div style={{ marginBottom: '30px' }}>
-        <h1 style={{ fontSize: '32px', marginBottom: '10px' }}>All Products</h1>
-        <p style={{ color: '#666' }}>
-          Showing {filteredProducts.length} of {products.length} products
-        </p>
-      </div>
+    <div className="bg-white">
+      <div className="container mx-auto px-4 py-10">
+        <Link
+          href="/products"
+          className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900"
+        >
+          <ArrowLeft size={16} />
+          Back to products
+        </Link>
 
-      {/* Search Bar */}
-      <div style={{ 
-        marginBottom: '30px',
-        position: 'relative'
-      }}>
-        <input
-          type="text"
-          placeholder="Search products..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '12px 20px 12px 45px',
-            border: '1px solid #ddd',
-            borderRadius: '8px',
-            fontSize: '16px'
-          }}
-        />
-        <Search 
-          size={20} 
-          style={{ 
-            position: 'absolute',
-            left: '15px',
-            top: '50%',
-            transform: 'translateY(-50%)',
-            color: '#666'
-          }}
-        />
-      </div>
+        <div className="grid gap-10 lg:grid-cols-[1.1fr,0.9fr]">
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+            <div className="relative aspect-square w-full">
+              <Image
+                src={product.image}
+                alt={product.title}
+                fill
+                className="object-cover"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+              />
+            </div>
+          </div>
 
-      <div style={{ display: 'flex', gap: '30px' }}>
-        {/* Filters Sidebar */}
-        <div style={{ 
-          width: '250px',
-          flexShrink: 0,
-          display: showFilters ? 'block' : 'none'
-        }}>
-          <div style={{ 
-            backgroundColor: 'white',
-            borderRadius: '8px',
-            padding: '20px',
-            border: '1px solid #e0e0e0'
-          }}>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '20px'
-            }}>
-              <h3 style={{ margin: 0 }}>Filters</h3>
-              <button 
-                onClick={() => {
-                  setSelectedCategory('All')
-                  setSearchQuery('')
-                  setPriceRange([0, maxPrice])
-                }}
-                style={{
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  color: '#0070f3',
-                  cursor: 'pointer'
-                }}
-              >
-                Clear all
-              </button>
+          <div className="flex flex-col justify-center">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="rounded-full bg-blue-100 px-3 py-1 text-sm font-semibold text-blue-700">
+                {product.category}
+              </span>
+              {product.featured && (
+                <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700">
+                  Featured
+                </span>
+              )}
             </div>
 
-            {/* Category Filter */}
-            <div style={{ marginBottom: '25px' }}>
-              <h4 style={{ margin: '0 0 10px 0' }}>Category</h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {categories.map(category => (
-                  <button
-                    key={category}
-                    onClick={() => setSelectedCategory(category)}
-                    style={{
-                      padding: '8px 12px',
-                      backgroundColor: selectedCategory === category ? '#0070f3' : '#f5f5f5',
-                      color: selectedCategory === category ? 'white' : '#333',
-                      border: 'none',
-                      borderRadius: '4px',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      textTransform: 'capitalize'
-                    }}
-                  >
-                    {category}
-                  </button>
-                ))}
+            <h1 className="text-4xl font-bold text-slate-900">{product.title}</h1>
+
+            <div className="mt-4 flex items-center gap-3 text-sm text-slate-600">
+              <div className="flex items-center gap-1">
+                <Star size={16} className="fill-amber-400 text-amber-400" />
+                <span>{product.rating.rate}</span>
               </div>
+              <span>({product.rating.count} reviews)</span>
+              <span>Stock: {product.stock}</span>
             </div>
 
-            {/* Price Filter */}
-            <div style={{ marginBottom: '25px' }}>
-              <h4 style={{ margin: '0 0 10px 0' }}>Price Range</h4>
-              <div style={{ padding: '0 5px' }}>
-                <input
-                  type="range"
-                  min="0"
-                  max={maxPrice}
-                  value={priceRange[1]}
-                  onChange={(e) => setPriceRange([priceRange[0], parseInt(e.target.value)])}
-                  style={{ width: '100%' }}
-                />
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between',
-                  marginTop: '5px',
-                  color: '#666'
-                }}>
-                  <span>${priceRange[0]}</span>
-                  <span>${priceRange[1]}</span>
-                </div>
+            <p className="mt-6 text-3xl font-bold text-slate-900">${product.price.toFixed(2)}</p>
+            <p className="mt-6 text-lg leading-8 text-slate-600">{product.description}</p>
+
+            <div className="mt-8">
+              <AddToCartButton product={product} />
+            </div>
+
+            <div className="mt-8 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <Truck size={18} className="text-blue-600" />
+                <p className="mt-2 font-semibold text-slate-900">Fast delivery</p>
+                <p className="mt-1 text-sm text-slate-500">Ships within 24 hours.</p>
               </div>
-            </div>
-
-            {/* Sort Options */}
-            <div>
-              <h4 style={{ margin: '0 0 10px 0' }}>Sort By</h4>
-              <select 
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px'
-                }}
-                onChange={(e) => {
-                  const sorted = [...filteredProducts]
-                  if (e.target.value === 'price-low') {
-                    sorted.sort((a, b) => a.price - b.price)
-                  } else if (e.target.value === 'price-high') {
-                    sorted.sort((a, b) => b.price - a.price)
-                  } else if (e.target.value === 'name') {
-                    sorted.sort((a, b) => a.title.localeCompare(b.title))
-                  }
-                  setFilteredProducts(sorted)
-                }}
-              >
-                <option value="">Default</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-                <option value="name">Name: A to Z</option>
-              </select>
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <ShieldCheck size={18} className="text-blue-600" />
+                <p className="mt-2 font-semibold text-slate-900">Secure checkout</p>
+                <p className="mt-1 text-sm text-slate-500">Protected payment flow.</p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 p-4">
+                <Package size={18} className="text-blue-600" />
+                <p className="mt-2 font-semibold text-slate-900">Easy returns</p>
+                <p className="mt-1 text-sm text-slate-500">30-day return support.</p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Products Grid */}
-        <div style={{ flex: 1 }}>
-          {/* Mobile Filter Toggle */}
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '10px 15px',
-              backgroundColor: '#0070f3',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              marginBottom: '20px',
-              cursor: 'pointer'
-            }}
-          >
-            <Filter size={18} />
-            {showFilters ? 'Hide Filters' : 'Show Filters'}
-          </button>
-
-          {/* Active Filters Display */}
-          {(selectedCategory !== 'All' || searchQuery || priceRange[1] < maxPrice) && (
-            <div style={{ 
-              display: 'flex', 
-              gap: '10px', 
-              flexWrap: 'wrap',
-              marginBottom: '20px'
-            }}>
-              {selectedCategory !== 'All' && (
-                <div style={{
-                  padding: '5px 10px',
-                  backgroundColor: '#e3f2fd',
-                  borderRadius: '20px',
-                  fontSize: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}>
-                  Category: {selectedCategory}
-                  <button
-                    onClick={() => setSelectedCategory('All')}
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '18px'
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
-              
-              {searchQuery && (
-                <div style={{
-                  padding: '5px 10px',
-                  backgroundColor: '#e3f2fd',
-                  borderRadius: '20px',
-                  fontSize: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}>
-                  Search: {searchQuery}
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '18px'
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
-              
-              {priceRange[1] < maxPrice && (
-                <div style={{
-                  padding: '5px 10px',
-                  backgroundColor: '#e3f2fd',
-                  borderRadius: '20px',
-                  fontSize: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px'
-                }}>
-                  Price: up to ${priceRange[1]}
-                  <button
-                    onClick={() => setPriceRange([0, maxPrice])}
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      cursor: 'pointer',
-                      fontSize: '18px'
-                    }}
-                  >
-                    ×
-                  </button>
-                </div>
-              )}
+        {relatedProducts.length > 0 && (
+          <section className="mt-16">
+            <div className="mb-6 flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-slate-900">Related Products</h2>
+              <Link href="/products" className="text-sm font-semibold text-blue-600 hover:text-blue-700">
+                View all
+              </Link>
             </div>
-          )}
-
-          {/* Products Grid */}
-          {filteredProducts.length > 0 ? (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
-              gap: '20px'
-            }}>
-              {filteredProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+              {relatedProducts.map((item) => (
+                <ProductCard key={item.id} product={item} />
               ))}
             </div>
-          ) : (
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '60px 20px',
-              backgroundColor: '#f9f9f9',
-              borderRadius: '8px'
-            }}>
-              <p style={{ fontSize: '18px', marginBottom: '10px' }}>
-                No products found
-              </p>
-              <p style={{ color: '#666', marginBottom: '20px' }}>
-                Try adjusting your search or filter criteria
-              </p>
-              <button
-                onClick={() => {
-                  setSelectedCategory('All')
-                  setSearchQuery('')
-                  setPriceRange([0, maxPrice])
-                }}
-                style={{
-                  padding: '10px 20px',
-                  backgroundColor: '#0070f3',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                Clear All Filters
-              </button>
-            </div>
-          )}
-        </div>
+          </section>
+        )}
       </div>
     </div>
   )

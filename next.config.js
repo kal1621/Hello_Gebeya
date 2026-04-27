@@ -1,4 +1,4 @@
-﻿/** @type {import('next').NextConfig} */
+/** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
     turbo: false
@@ -19,6 +19,12 @@ const nextConfig = {
         protocol: "https",
         hostname: "via.placeholder.com",
         pathname: "/**",
+      },
+       {
+        protocol: "https",
+        hostname: "www.istockphoto.com",
+        pathname: "/**",
+        
       },
     ],
   },

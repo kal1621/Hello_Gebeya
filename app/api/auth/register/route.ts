@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server'
+import { createUser } from '@/lib/auth-store'
+
+export const runtime = 'nodejs'
 
 export async function POST(request: Request) {
   try {
     const { name, email, password } = await request.json()
+    const trimmedEmail = email?.trim()
+    const trimmedName = name?.trim()
 
-    // Validation
-    if (!name || !email || !password) {
+    if (!trimmedEmail || !password) {
       return NextResponse.json(
-        { message: 'All fields are required' },
+        { message: 'Email and password are required' },
         { status: 400 }
       )
     }
@@ -19,23 +23,33 @@ export async function POST(request: Request) {
       )
     }
 
-    // For demo purposes - just return success
-    console.log("📝 Demo Registration:", { name, email })
-    
+    const user = await createUser({
+      name: trimmedName,
+      email: trimmedEmail,
+      password,
+      role: 'USER',
+    })
+
     return NextResponse.json(
-      { 
-        message: 'Registration successful! You can now login with demo credentials.',
+      {
+        message: 'Registration successful',
         success: true,
-        demoNote: 'This is a demo. Use admin@example.com / admin123 or user@example.com / password123 to login.'
+        user,
       },
       { status: 201 }
     )
-
   } catch (error) {
+    if (error instanceof Error && error.message === 'USER_ALREADY_EXISTS') {
+      return NextResponse.json(
+        { message: 'An account with that email already exists' },
+        { status: 409 }
+      )
+    }
+
     console.error('Registration error:', error)
     return NextResponse.json(
-      { message: 'Registration successful (demo mode)' },
-      { status: 201 }
+      { message: 'Unable to create your account right now' },
+      { status: 500 }
     )
   }
 }

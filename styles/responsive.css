@@ -1,4 +1,4 @@
-/* Responsive breakpoints */
+
 .container {
   width: 100%;
   max-width: 1280px;
@@ -6,7 +6,7 @@
   padding: 0 1rem;
 }
 
-/* Responsive grid */
+
 .grid-responsive {
   display: grid;
   grid-template-columns: repeat(1, 1fr);
@@ -31,7 +31,7 @@
   }
 }
 
-/* Responsive text */
+
 .text-responsive {
   font-size: 0.875rem;
 }

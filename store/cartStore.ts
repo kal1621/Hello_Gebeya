@@ -17,7 +17,7 @@ interface CartStore {
   clearCart: () => void
   getTotalPrice: () => number
   getItemCount: () => number
-  getTotalItems: () => number // Alias for getItemCount
+  getTotalItems: () => number 
 }
 
 export const useCartStore = create<CartStore>()(
@@ -72,7 +72,7 @@ export const useCartStore = create<CartStore>()(
         return get().items.reduce((count, item) => count + item.quantity, 0);
       },
       
-      getTotalItems: () => {  // Added this function
+      getTotalItems: () => {  
         return get().items.reduce((count, item) => count + item.quantity, 0);
       },
     }),

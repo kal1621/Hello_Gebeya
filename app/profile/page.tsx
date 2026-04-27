@@ -1,139 +1,465 @@
+'use client'
+
+import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { signOut, useSession } from 'next-auth/react'
+import { KeyRound, LogOut, PencilLine, ShieldCheck, ShoppingBag, UserRound } from 'lucide-react'
+
+type ProfileUser = {
+  id: string
+  name: string
+  email: string
+  role: string
+  createdAt: string
+  updatedAt: string
+}
+
 export default function ProfilePage() {
-  // Mock user data
-  const user = {
-    name: 'John Doe',
-    email: 'john@example.com',
-    joinDate: 'January 2024',
-    ordersCount: 3,
-    totalSpent: 539.95
+  const router = useRouter()
+  const { data: session, status, update } = useSession()
+  const [loading, setLoading] = useState(true)
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [savingPassword, setSavingPassword] = useState(false)
+  const [profileUser, setProfileUser] = useState<ProfileUser | null>(null)
+  const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [nameForm, setNameForm] = useState({
+    name: '',
+  })
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  })
+
+  useEffect(() => {
+    let isActive = true
+
+    async function fetchProfile() {
+      try {
+        const response = await fetch('/api/profile', { cache: 'no-store' })
+        const data = await response.json()
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Unable to load your profile')
+        }
+
+        if (isActive) {
+          setProfileUser(data.user)
+          setNameForm({ name: data.user.name })
+        }
+      } catch (fetchError) {
+        if (isActive) {
+          setError(fetchError instanceof Error ? fetchError.message : 'Unable to load your profile')
+        }
+      } finally {
+        if (isActive) {
+          setLoading(false)
+        }
+      }
+    }
+
+    if (status === 'unauthenticated') {
+      router.push('/login')
+      return
+    }
+
+    if (status === 'authenticated') {
+      fetchProfile()
+    }
+
+    return () => {
+      isActive = false
+    }
+  }, [router, status])
+
+  const displayName = profileUser?.name || session?.user?.name || 'Your Account'
+  const displayEmail = profileUser?.email || session?.user?.email || ''
+  const memberSince = useMemo(() => {
+    if (!profileUser?.createdAt) {
+      return 'Recently joined'
+    }
+
+    return new Date(profileUser.createdAt).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'long',
+    })
+  }, [profileUser?.createdAt])
+
+  const clearMessages = () => {
+    setError('')
+    setSuccessMessage('')
+  }
+
+  const handleNameSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    clearMessages()
+    setSavingProfile(true)
+
+    try {
+      const response = await fetch('/api/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: nameForm.name,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to update your name')
+      }
+
+      setProfileUser(data.user)
+      setNameForm({ name: data.user.name })
+      await update({ name: data.user.name })
+      setIsEditingName(false)
+      setSuccessMessage('Your name has been updated.')
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Unable to update your name')
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
+  const handlePasswordSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    clearMessages()
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setError('New password and confirm password do not match')
+      return
+    }
+
+    setSavingPassword(true)
+
+    try {
+      const response = await fetch('/api/profile/password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to update your password')
+      }
+
+      setPasswordForm({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      })
+      setIsChangingPassword(false)
+      setSuccessMessage('Your password has been updated.')
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Unable to update your password')
+    } finally {
+      setSavingPassword(false)
+    }
+  }
+
+  if (loading || status === 'loading') {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <p className="text-lg text-gray-500">Loading your profile...</p>
+      </div>
+    )
+  }
+
+  if (!session) {
+    return null
   }
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
-      <h1 style={{ fontSize: '32px', marginBottom: '30px' }}>My Profile</h1>
-      
-      <div style={{ 
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        padding: '30px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '30px' }}>
-          <div style={{
-            width: '80px',
-            height: '80px',
-            borderRadius: '50%',
-            backgroundColor: '#0070f3',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontSize: '32px',
-            marginRight: '20px'
-          }}>
-            {user.name.charAt(0)}
-          </div>
-          <div>
-            <h2 style={{ margin: '0 0 5px 0' }}>{user.name}</h2>
-            <p style={{ margin: '0', color: '#666' }}>{user.email}</p>
-            <p style={{ margin: '5px 0 0 0', color: '#666' }}>
-              Member since {user.joinDate}
-            </p>
-          </div>
-        </div>
-
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '20px',
-          marginBottom: '30px'
-        }}>
-          <div style={{ 
-            padding: '20px',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '8px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0070f3' }}>
-              {user.ordersCount}
+    <div className="min-h-screen bg-slate-50 py-10">
+      <div className="container mx-auto max-w-5xl px-4">
+        <div className="grid gap-8 lg:grid-cols-[0.85fr,1.15fr]">
+          <section className="rounded-3xl bg-white p-8 shadow-sm">
+            <div className="flex items-center gap-5">
+              <div className="flex h-20 w-20 items-center justify-center rounded-full bg-blue-600 text-3xl font-bold text-white">
+                {displayName.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900">{displayName}</h1>
+                <p className="mt-1 text-slate-600">{displayEmail}</p>
+                <p className="mt-1 text-sm text-slate-500">Member since {memberSince}</p>
+              </div>
             </div>
-            <div style={{ color: '#666' }}>Total Orders</div>
-          </div>
-          
-          <div style={{ 
-            padding: '20px',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '8px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0070f3' }}>
-              ${user.totalSpent.toFixed(2)}
+
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl bg-slate-50 p-5">
+                <p className="text-sm text-slate-500">Account role</p>
+                <p className="mt-2 text-2xl font-bold text-slate-900">{profileUser?.role || session.user.role}</p>
+              </div>
+              <div className="rounded-2xl bg-slate-50 p-5">
+                <p className="text-sm text-slate-500">Last updated</p>
+                <p className="mt-2 text-lg font-semibold text-slate-900">
+                  {profileUser?.updatedAt
+                    ? new Date(profileUser.updatedAt).toLocaleDateString()
+                    : 'Today'}
+                </p>
+              </div>
             </div>
-            <div style={{ color: '#666' }}>Total Spent</div>
-          </div>
-        </div>
 
-        <div style={{ marginBottom: '30px' }}>
-          <h3 style={{ marginBottom: '15px' }}>Account Settings</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <button style={{
-              padding: '12px',
-              textAlign: 'left',
-              backgroundColor: 'transparent',
-              border: '1px solid #e0e0e0',
-              borderRadius: '4px'
-            }}>
-              Edit Profile Information
-            </button>
-            <button style={{
-              padding: '12px',
-              textAlign: 'left',
-              backgroundColor: 'transparent',
-              border: '1px solid #e0e0e0',
-              borderRadius: '4px'
-            }}>
-              Change Password
-            </button>
-            <button style={{
-              padding: '12px',
-              textAlign: 'left',
-              backgroundColor: 'transparent',
-              border: '1px solid #e0e0e0',
-              borderRadius: '4px'
-            }}>
-              Payment Methods
-            </button>
-            <button style={{
-              padding: '12px',
-              textAlign: 'left',
-              backgroundColor: 'transparent',
-              border: '1px solid #e0e0e0',
-              borderRadius: '4px'
-            }}>
-              Shipping Addresses
-            </button>
-          </div>
-        </div>
+            <div className="mt-8 space-y-3">
+              <button
+                type="button"
+                onClick={() => {
+                  clearMessages()
+                  setIsEditingName((currentValue) => !currentValue)
+                  setIsChangingPassword(false)
+                }}
+                className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-4 py-4 text-left transition hover:border-blue-300 hover:bg-blue-50"
+              >
+                <div className="flex items-center gap-3">
+                  <PencilLine size={18} className="text-blue-600" />
+                  <span className="font-medium text-slate-900">Edit Name</span>
+                </div>
+                <span className="text-sm text-slate-500">{isEditingName ? 'Close' : 'Open'}</span>
+              </button>
 
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button style={{
-            padding: '12px 24px',
-            backgroundColor: '#0070f3',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px'
-          }}>
-            View Order History
-          </button>
-          <button style={{
-            padding: '12px 24px',
-            backgroundColor: 'transparent',
-            color: '#dc3545',
-            border: '1px solid #dc3545',
-            borderRadius: '4px'
-          }}>
-            Logout
-          </button>
+              <button
+                type="button"
+                onClick={() => {
+                  clearMessages()
+                  setIsChangingPassword((currentValue) => !currentValue)
+                  setIsEditingName(false)
+                }}
+                className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-4 py-4 text-left transition hover:border-blue-300 hover:bg-blue-50"
+              >
+                <div className="flex items-center gap-3">
+                  <KeyRound size={18} className="text-blue-600" />
+                  <span className="font-medium text-slate-900">Change Password</span>
+                </div>
+                <span className="text-sm text-slate-500">{isChangingPassword ? 'Close' : 'Open'}</span>
+              </button>
+
+              <Link
+                href="/orders"
+                className="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-4 py-4 text-left transition hover:border-blue-300 hover:bg-blue-50"
+              >
+                <div className="flex items-center gap-3">
+                  <ShoppingBag size={18} className="text-blue-600" />
+                  <span className="font-medium text-slate-900">View Order History</span>
+                </div>
+                <span className="text-sm text-slate-500">Open</span>
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => signOut({ callbackUrl: '/login' })}
+                className="flex w-full items-center justify-between rounded-2xl border border-red-200 px-4 py-4 text-left text-red-600 transition hover:bg-red-50"
+              >
+                <div className="flex items-center gap-3">
+                  <LogOut size={18} />
+                  <span className="font-medium">Logout</span>
+                </div>
+                <span className="text-sm text-red-400">Exit</span>
+              </button>
+            </div>
+          </section>
+
+          <section className="space-y-6">
+            {(error || successMessage) && (
+              <div className={`rounded-2xl px-5 py-4 text-sm ${
+                error
+                  ? 'border border-red-200 bg-red-50 text-red-700'
+                  : 'border border-green-200 bg-green-50 text-green-700'
+              }`}>
+                {error || successMessage}
+              </div>
+            )}
+
+            {isEditingName ? (
+              <form onSubmit={handleNameSave} className="rounded-3xl bg-white p-8 shadow-sm">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-slate-900">Edit Your Name</h2>
+                  <p className="mt-2 text-slate-600">
+                    Update the name shown across your account and header.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-slate-700">Full Name</label>
+                  <input
+                    type="text"
+                    value={nameForm.name}
+                    onChange={(e) => setNameForm({ name: e.target.value })}
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    required
+                  />
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="submit"
+                    disabled={savingProfile}
+                    className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    {savingProfile ? 'Saving...' : 'Save Name'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditingName(false)
+                      setNameForm({ name: profileUser?.name || session.user.name || '' })
+                      clearMessages()
+                    }}
+                    className="rounded-xl border border-slate-300 px-5 py-3 font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
+            {isChangingPassword ? (
+              <form onSubmit={handlePasswordSave} className="rounded-3xl bg-white p-8 shadow-sm">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-slate-900">Change Password</h2>
+                  <p className="mt-2 text-slate-600">
+                    Use your current password, then choose a new one with at least 6 characters.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-700">Current Password</label>
+                    <input
+                      type="password"
+                      value={passwordForm.currentPassword}
+                      onChange={(e) =>
+                        setPasswordForm((currentForm) => ({
+                          ...currentForm,
+                          currentPassword: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-700">New Password</label>
+                    <input
+                      type="password"
+                      value={passwordForm.newPassword}
+                      onChange={(e) =>
+                        setPasswordForm((currentForm) => ({
+                          ...currentForm,
+                          newPassword: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-slate-700">Confirm New Password</label>
+                    <input
+                      type="password"
+                      value={passwordForm.confirmPassword}
+                      onChange={(e) =>
+                        setPasswordForm((currentForm) => ({
+                          ...currentForm,
+                          confirmPassword: e.target.value,
+                        }))
+                      }
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex gap-3">
+                  <button
+                    type="submit"
+                    disabled={savingPassword}
+                    className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    {savingPassword ? 'Updating...' : 'Update Password'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsChangingPassword(false)
+                      setPasswordForm({
+                        currentPassword: '',
+                        newPassword: '',
+                        confirmPassword: '',
+                      })
+                      clearMessages()
+                    }}
+                    className="rounded-xl border border-slate-300 px-5 py-3 font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : null}
+
+            {!isEditingName && !isChangingPassword ? (
+              <div className="rounded-3xl bg-white p-8 shadow-sm">
+                <div className="flex items-start gap-4">
+                  <div className="rounded-2xl bg-blue-50 p-3 text-blue-600">
+                    <UserRound size={22} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900">Account Overview</h2>
+                    <p className="mt-2 text-slate-600">
+                      Your profile is now linked to the real registered account, not placeholder demo data.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 p-5">
+                    <p className="text-sm text-slate-500">Registered Name</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-900">{displayName}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 p-5">
+                    <p className="text-sm text-slate-500">Email Address</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-900">{displayEmail}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 p-5">
+                    <p className="text-sm text-slate-500">Security</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-900">Password protected</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 p-5">
+                    <p className="text-sm text-slate-500">Checkout</p>
+                    <p className="mt-2 text-lg font-semibold text-slate-900">Ready for orders</p>
+                  </div>
+                </div>
+
+                <div className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-sm text-slate-600">
+                  Payment methods and shipping addresses can be added next if you want; for now, the important profile actions are live and connected to your real account.
+                </div>
+              </div>
+            ) : null}
+
+            <div className="rounded-3xl border border-blue-100 bg-blue-50 px-6 py-5 text-sm text-blue-700">
+              <div className="flex items-start gap-3">
+                <ShieldCheck size={18} className="mt-0.5" />
+                <p>
+                  Name changes update the account profile immediately, and password changes are saved securely for future logins.
+                </p>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
     </div>

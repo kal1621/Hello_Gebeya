@@ -70,8 +70,8 @@ export default function CartPage() {
                 {/* Product Image */}
                 <div className="w-28 h-28 flex-shrink-0 relative rounded-lg overflow-hidden bg-gray-100">
                   <Image
-                    src={item.image}  // Changed from item.product.image to item.image
-                    alt={item.name}   // Changed from item.product.title to item.name
+                    src={item.image}  
+                    alt={item.name}   
                     fill
                     className="object-cover"
                     sizes="112px"
@@ -83,14 +83,14 @@ export default function CartPage() {
                   <div className="flex justify-between">
                     <div>
                       <h3 className="font-bold text-lg text-gray-900 hover:text-blue-600 transition-colors">
-                        {item.name}  {/* Changed from item.product.title to item.name */}
+                        {item.name}  {  }
                       </h3>
                       <p className="text-gray-500 text-sm mt-1">
-                        {/* Removed category since it's not in cart store */}
+                        { }
                       </p>
                     </div>
                     <p className="text-2xl font-bold text-gray-900">
-                      ${item.price.toFixed(2)}  {/* Changed from item.product.price to item.price */}
+                      ${item.price.toFixed(2)}  { }
                     </p>
                   </div>
 

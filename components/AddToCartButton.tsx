@@ -2,14 +2,7 @@
 
 import { useCartStore } from '@/store/cartStore'
 import { ShoppingCart } from 'lucide-react'
-
-interface Product {
-  id: number
-  title: string
-  price: number
-  image: string
-  category: string
-}
+import type { Product } from '@/lib/types'
 
 interface AddToCartButtonProps {
   product: Product
@@ -27,7 +20,7 @@ export default function AddToCartButton({ product }: AddToCartButtonProps) {
       quantity: 1,
     })
     
-    // Optional: Show toast notification
+    
     console.log('Added to cart:', product.title)
   }
   
